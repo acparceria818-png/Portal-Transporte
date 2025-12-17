@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initDarkMode();
   initPWA();
   initEventListeners();
-  initAccessibility();
   initConnectionMonitor();
   initAvisos();
   
