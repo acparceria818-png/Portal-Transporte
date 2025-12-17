@@ -1,5 +1,8 @@
-// firebase.js - Configuração completa do Firebase
+// firebase.js - Configuração completa do Firebase (CORRIGIDA)
+
+// ================= IMPORTAÇÕES =================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
 import { 
   getFirestore, 
   doc, 
@@ -14,28 +17,30 @@ import {
   addDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 import { 
   getAuth, 
   signInWithEmailAndPassword,
   signOut 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// Configuração do Firebase (SUA CONFIGURAÇÃO AQUI)
+// ================= CONFIGURAÇÃO FIREBASE =================
 const firebaseConfig = {
   apiKey: "AIzaSyA5KEaKntt9wPYcy60DutrqvIH34piXsXk",
-  authDomain: "ac-parceria.firebaseapp.com",
-  projectId: "ac-parceria",
-  storageBucket: "ac-parceria.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456"
+  authDomain: "transporte-f7aea.firebaseapp.com",
+  databaseURL: "https://transporte-f7aea-default-rtdb.firebaseio.com",
+  projectId: "transporte-f7aea",
+  storageBucket: "transporte-f7aea.firebasestorage.app",
+  messagingSenderId: "551406731008",
+  appId: "1:551406731008:web:90855ffcd9ac0ef1d93de5"
 };
 
-// Inicializar Firebase
+// ================= INICIALIZAÇÃO =================
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// ========== FUNÇÕES DE AUTENTICAÇÃO ==========
+// ================= AUTENTICAÇÃO =================
 async function loginEmailSenha(email, senha) {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, senha);
@@ -56,50 +61,61 @@ function getErrorMessage(errorCode) {
   return messages[errorCode] || 'Erro ao fazer login';
 }
 
-// ========== FUNÇÕES DE COLABORADORES ==========
+// ================= COLABORADORES =================
 async function getColaborador(matricula) {
   const docRef = doc(db, 'colaboradores', matricula);
   return await getDoc(docRef);
 }
 
 async function getColaboradorByEmail(email) {
-  const q = query(collection(db, 'colaboradores'), where("email", "==", email));
+  const q = query(
+    collection(db, 'colaboradores'),
+    where("email", "==", email)
+  );
   const querySnapshot = await getDocs(q);
-  if (!querySnapshot.empty) {
-    return querySnapshot.docs[0];
-  }
-  return null;
+  return querySnapshot.empty ? null : querySnapshot.docs[0];
 }
 
-// ========== FUNÇÕES DE ROTAS ==========
+// ================= ROTAS =================
 async function updateLocalizacao(matricula, dados) {
   const docRef = doc(db, 'rotas_em_andamento', matricula);
-  return await setDoc(docRef, { ...dados, ultimaAtualizacao: serverTimestamp() }, { merge: true });
+  return await setDoc(
+    docRef,
+    { ...dados, ultimaAtualizacao: serverTimestamp() },
+    { merge: true }
+  );
 }
 
+// ================= REGISTROS =================
 async function registrarEmergencia(dados) {
-  const docRef = collection(db, 'emergencias');
-  return await addDoc(docRef, { ...dados, timestamp: serverTimestamp() });
+  return await addDoc(collection(db, 'emergencias'), {
+    ...dados,
+    timestamp: serverTimestamp()
+  });
 }
 
 async function registrarFeedback(dados) {
-  const docRef = collection(db, 'feedbacks');
-  return await addDoc(docRef, { ...dados, timestamp: serverTimestamp() });
+  return await addDoc(collection(db, 'feedbacks'), {
+    ...dados,
+    timestamp: serverTimestamp()
+  });
 }
 
 async function registrarAviso(dados) {
-  const docRef = collection(db, 'avisos');
-  return await addDoc(docRef, { ...dados, timestamp: serverTimestamp() });
+  return await addDoc(collection(db, 'avisos'), {
+    ...dados,
+    timestamp: serverTimestamp()
+  });
 }
 
-// ========== MONITORAMENTO ==========
+// ================= MONITORAMENTO =================
 function monitorarRotas(callback) {
-  return onSnapshot(collection(db, 'rotas_em_andamento'), (snapshot) => {
+  return onSnapshot(collection(db, 'rotas_em_andamento'), snapshot => {
     const rotas = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
       if (data.ativo !== false && data.latitude && data.longitude) {
-        rotas.push({ id: doc.id, ...data });
+        rotas.push({ id: docSnap.id, ...data });
       }
     });
     callback(rotas);
@@ -107,56 +123,51 @@ function monitorarRotas(callback) {
 }
 
 function monitorarEmergencias(callback) {
-  return onSnapshot(collection(db, 'emergencias'), (snapshot) => {
-    const emergencias = [];
-    snapshot.forEach(doc => {
-      emergencias.push({ id: doc.id, ...doc.data() });
-    });
-    callback(emergencias);
+  return onSnapshot(collection(db, 'emergencias'), snapshot => {
+    const dados = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(dados);
   });
 }
 
 function monitorarFeedbacks(callback) {
-  return onSnapshot(collection(db, 'feedbacks'), (snapshot) => {
-    const feedbacks = [];
-    snapshot.forEach(doc => {
-      feedbacks.push({ id: doc.id, ...doc.data() });
-    });
-    callback(feedbacks);
+  return onSnapshot(collection(db, 'feedbacks'), snapshot => {
+    const dados = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(dados);
   });
 }
 
 function monitorarAvisos(callback) {
   const q = query(collection(db, 'avisos'), where("ativo", "==", true));
-  return onSnapshot(q, (snapshot) => {
-    const avisos = [];
-    snapshot.forEach(doc => {
-      avisos.push({ id: doc.id, ...doc.data() });
-    });
-    callback(avisos);
+  return onSnapshot(q, snapshot => {
+    const dados = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(dados);
   });
 }
 
-// ========== FUNÇÕES ADMIN ==========
+// ================= ADMIN =================
 async function getFormsControleVeiculos() {
-  const q = query(collection(db, 'controle_veiculos'), where("data", ">=", new Date(new Date().setDate(new Date().getDate() - 7))));
-  const querySnapshot = await getDocs(q);
-  const forms = [];
-  querySnapshot.forEach(doc => {
-    forms.push({ id: doc.id, ...doc.data() });
-  });
-  return forms;
+  const dataLimite = new Date();
+  dataLimite.setDate(dataLimite.getDate() - 7);
+
+  const q = query(
+    collection(db, 'controle_veiculos'),
+    where("data", ">=", dataLimite)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-// Exportar tudo
-export { 
-  db, 
-  auth, 
-  doc, 
-  getDoc, 
+// ================= EXPORTAÇÕES =================
+export {
+  db,
+  auth,
+  doc,
+  getDoc,
   setDoc,
   updateDoc,
   collection,
+  serverTimestamp,
   getColaborador,
   getColaboradorByEmail,
   updateLocalizacao,
@@ -169,6 +180,5 @@ export {
   monitorarAvisos,
   getFormsControleVeiculos,
   loginEmailSenha,
-  signOut,
-  serverTimestamp
+  signOut
 };
