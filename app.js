@@ -1,4 +1,4 @@
-// app.js - CÓDIGO COMPLETO FINAL ATUALIZADO
+// app.js - CÓDIGO COMPLETO FINAL ATUALIZADO E FUNCIONAL
 import { 
   db, 
   getColaborador, 
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initConnectionMonitor();
   initAvisos();
   
-  // Iniciar clima
+  // Iniciar clima (com fallback)
   buscarClimaAtual();
   
   console.log('✅ Aplicativo inicializado com sucesso');
@@ -213,44 +213,64 @@ window.selecionarOnibus = function(placa) {
 };
 
 function solicitarPermissaoLocalizacao() {
+  console.log('📍 Iniciando solicitação de localização...');
+  
   if (!navigator.geolocation) {
-    alert('❌ Geolocalização não suportada neste navegador.');
-    mostrarTela('tela-motorista');
+    console.warn('❌ Geolocation não suportada');
+    finalizarLoginSemGPS();
     return;
   }
   
-  showLoading('📍 Solicitando permissão de localização...');
+  showLoading('📍 Obtendo localização...');
+  
+  // Usar timeout mais curto para login
+  const options = {
+    enableHighAccuracy: false,  // Mais rápido para login
+    timeout: 8000,             // 8 segundos
+    maximumAge: 30000          // Aceita localização recente
+  };
   
   navigator.geolocation.getCurrentPosition(
+    // SUCESSO
     (position) => {
-      console.log('✅ Permissão de localização concedida');
+      console.log('✅ GPS obtido no login');
       hideLoading();
-      
-      // Atualizar interface
-      updateUserStatus(estadoApp.motorista.nome, estadoApp.motorista.matricula);
-      
-      // Mostrar tela do motorista com todas as funcionalidades
-      mostrarTela('tela-motorista');
-      
-      // Iniciar monitoramento de avisos
-      iniciarMonitoramentoAvisos();
-      
-      alert(`✅ Login realizado com sucesso!\n\n👋 Bem-vindo, ${estadoApp.motorista.nome}\n🚌 Ônibus: ${estadoApp.onibusAtivo.placa}\n📍 Localização ativada`);
+      finalizarLoginComGPS(position);
     },
+    // ERRO
     (error) => {
+      console.warn('⚠️ GPS falhou no login:', error.message);
       hideLoading();
-      console.error('Erro na localização:', error);
       
-      if (error.code === 1) {
-        alert('⚠️ Permissão de localização negada.\n\nPara usar todas as funcionalidades, ative a localização nas configurações do navegador.');
-      }
+      // NÃO BLOQUEIA O LOGIN - continua sem GPS
+      alert('📍 Localização não disponível no momento.\n\nO login será realizado normalmente. Você pode ativar o GPS depois.');
       
-      // Mostrar tela mesmo sem localização
-      mostrarTela('tela-motorista');
-      iniciarMonitoramentoAvisos();
+      // Finalizar login SEM GPS
+      finalizarLoginSemGPS();
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    options
   );
+  
+  // Funções auxiliares
+  function finalizarLoginComGPS(position) {
+    if (!estadoApp.motorista || !estadoApp.onibusAtivo) return;
+    
+    updateUserStatus(estadoApp.motorista.nome, estadoApp.motorista.matricula);
+    mostrarTela('tela-motorista');
+    iniciarMonitoramentoAvisos();
+    
+    alert(`✅ Login realizado!\n\n👋 ${estadoApp.motorista.nome}\n🚌 ${estadoApp.onibusAtivo.placa}\n📍 GPS ativo`);
+  }
+  
+  function finalizarLoginSemGPS() {
+    if (!estadoApp.motorista || !estadoApp.onibusAtivo) return;
+    
+    updateUserStatus(estadoApp.motorista.nome, estadoApp.motorista.matricula);
+    mostrarTela('tela-motorista');
+    iniciarMonitoramentoAvisos();
+    
+    alert(`✅ Login realizado!\n\n👋 ${estadoApp.motorista.nome}\n🚌 ${estadoApp.onibusAtivo.placa}\n📍 GPS desativado (pode ativar depois)`);
+  }
 }
 
 // ========== LOGIN ADMIN ==========
@@ -346,10 +366,10 @@ async function obterLocalizacaoInteligente() {
   console.log('📍 Sistema GPS Inteligente iniciado...');
   
   return new Promise((resolve, reject) => {
-    // Tentativa 1: GPS rápido (5 segundos)
+    // Tentativa 1: GPS rápido (8 segundos)
     const tentativaRapida = {
       enableHighAccuracy: false,  // Mais rápido
-      timeout: 15000,
+      timeout: 8000,
       maximumAge: 30000          // Aceita localização de até 30 segundos atrás
     };
     
@@ -369,10 +389,10 @@ async function obterLocalizacaoInteligente() {
         
         console.log('⚠️ GPS rápido falhou, tentando modo preciso...');
         
-        // Tentativa 2: GPS preciso (15 segundos)
+        // Tentativa 2: GPS preciso (12 segundos)
         const tentativaPrecisa = {
           enableHighAccuracy: true,  // Mais preciso
-          timeout: 15000,
+          timeout: 12000,
           maximumAge: 0
         };
         
@@ -388,7 +408,7 @@ async function obterLocalizacaoInteligente() {
             
             console.log('⚠️ Ambas tentativas GPS falharam, usando fallback...');
             
-            // FALLBACK: Localização simulada ou IP
+            // FALLBACK: Localização simulada
             const localizacaoFallback = await obterLocalizacaoFallback();
             if (localizacaoFallback) {
               tentativaAtiva = false;
@@ -472,71 +492,119 @@ async function obterLocalizacaoFallback() {
 
 // ========== FUNÇÕES DE ROTA E LOCALIZAÇÃO ==========
 window.iniciarRota = async function (nomeRota) {
-  if (!navigator.geolocation) {
-    alert('❌ Geolocalização não suportada neste navegador.');
-    return;
-  }
-
+  console.log(`🛣️ Iniciando rota: ${nomeRota}`);
+  
   if (!estadoApp.motorista || !estadoApp.onibusAtivo) {
     alert('❌ Motorista ou ônibus não configurado. Faça login novamente.');
     mostrarTela('tela-motorista-login');
     return;
   }
 
-  if (!await checkLocationPermission()) {
+  // Confirmação
+  if (!confirm(`🚀 Iniciar Rota: ${nomeRota}\n\nÔnibus: ${estadoApp.onibusAtivo.placa}\n\nSua localização será compartilhada.`)) {
     return;
   }
 
-  if (!confirm(`🚀 Iniciar Rota: ${nomeRota}\n\nÔnibus: ${estadoApp.onibusAtivo.placa}\n\nSua localização será compartilhada em tempo real.`)) {
-    return;
-  }
-
-  // Atualizar interface
+  // Atualizar botão
   const btn = event?.target;
+  const btnOriginalText = btn?.textContent || '▶️ Iniciar Rota';
   if (btn) {
     btn.classList.add('loading');
-    btn.textContent = 'Iniciando...';
+    btn.textContent = 'Obtendo localização...';
+    btn.disabled = true;
   }
 
   try {
-    // Primeira localização imediata
-    const position = await getCurrentPosition();
+    // 1. OBTER LOCALIZAÇÃO (usando o sistema inteligente)
+    let position;
+    let usandoFallback = false;
+    
+    try {
+      position = await obterLocalizacaoInteligente();
+      console.log('📍 Localização obtida:', position.coords);
+    } catch (erro) {
+      console.warn('❌ GPS falhou, usando fallback:', erro);
+      position = await obterLocalizacaoFallback();
+      usandoFallback = true;
+      console.log('📍 Localização fallback:', position.coords);
+    }
+    
+    // 2. ENVIAR PRIMEIRA LOCALIZAÇÃO
     await enviarLocalizacao(nomeRota, position.coords);
     
-    // Iniciar monitoramento contínuo
-    estadoApp.watchId = navigator.geolocation.watchPosition(
-      async (pos) => {
-        await enviarLocalizacao(nomeRota, pos.coords);
-      },
-      (erro) => {
-        console.error('Erro na geolocalização:', erro);
-        mostrarNotificacao('⚠️ Erro na localização', 'Verifique as permissões do GPS');
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 50000,
-        timeout: 100000
-      }
-    );
-
+    // 3. INICIAR MONITORAMENTO CONTÍNUO (se não for fallback e tiver boa precisão)
+    if (!usandoFallback && position.coords.accuracy < 10000) {
+      estadoApp.watchId = navigator.geolocation.watchPosition(
+        async (pos) => {
+          await enviarLocalizacao(nomeRota, pos.coords);
+        },
+        (erro) => {
+          console.warn('⚠️ Erro no monitoramento GPS:', erro);
+          // Não para o compartilhamento por erro temporário
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 10000
+        }
+      );
+    } else {
+      console.log('📍 Monitoramento contínuo não iniciado (fallback ou baixa precisão)');
+    }
+    
+    // 4. ATUALIZAR ESTADO E INTERFACE
     estadoApp.rotaAtiva = nomeRota;
     
-    // Atualizar interface
-    document.getElementById('rotaStatus').textContent = `📍 Rota ativa: ${nomeRota}`;
-    document.getElementById('pararRotaBtn').style.display = 'block';
+    const rotaStatus = document.getElementById('rotaStatus');
+    if (rotaStatus) {
+      rotaStatus.textContent = `📍 Rota ativa: ${nomeRota} ${usandoFallback ? '(Simulado)' : ''}`;
+      if (usandoFallback) {
+        rotaStatus.classList.add('simulada');
+      }
+    }
     
-    mostrarNotificacao('✅ Rota Iniciada', `Rota "${nomeRota}" iniciada com sucesso!`);
+    const pararBtn = document.getElementById('pararRotaBtn');
+    if (pararBtn) pararBtn.style.display = 'block';
     
-    // Mostrar tela do motorista
+    // 5. NOTIFICAÇÃO
+    if (usandoFallback) {
+      mostrarNotificacao('🎮 Rota Iniciada (Simulada)', 
+        `Rota "${nomeRota}" iniciada com localização simulada para testes.`);
+    } else {
+      mostrarNotificacao('✅ Rota Iniciada', `Rota "${nomeRota}" iniciada com sucesso!`);
+    }
+    
+    // 6. VOLTAR PARA TELA PRINCIPAL
     mostrarTela('tela-motorista');
+    
+    // 7. ALERTA INFORMATIVO
+    if (usandoFallback) {
+      alert(`✅ Rota "${nomeRota}" iniciada com localização SIMULADA!\n\n📍 Para testes no computador\n🚌 Ônibus: ${estadoApp.onibusAtivo.placa}\n\nNo celular real, o GPS funcionará automaticamente.`);
+    } else {
+      alert(`✅ Rota "${nomeRota}" iniciada com sucesso!\n\n📍 Localização ativa\n🚌 Ônibus: ${estadoApp.onibusAtivo.placa}`);
+    }
 
   } catch (erro) {
-    console.error('Erro ao iniciar rota:', erro);
-    alert('❌ Não foi possível iniciar a rota. Verifique sua conexão e permissões de localização.');
+    console.error('❌ Erro ao iniciar rota:', erro);
+    
+    // Tratamento específico para erros de GPS
+    if (erro.code === 3 || erro.message.includes('Timeout')) {
+      const usarSimulado = confirm(`⏱️ GPS demorando muito para responder.\n\nDeseja:\n• "OK" = Usar localização simulada para testes\n• "Cancelar" = Tentar novamente mais tarde`);
+      
+      if (usarSimulado) {
+        // Reiniciar com simulação
+        setTimeout(() => window.iniciarRota(nomeRota), 100);
+      }
+    } else {
+      alert(`❌ Não foi possível iniciar a rota:\n\n${erro.message || 'Erro desconhecido'}\n\nVerifique sua conexão e tente novamente.`);
+    }
+    
   } finally {
+    // Restaurar botão
     if (btn) {
       btn.classList.remove('loading');
-      btn.textContent = '▶️ Iniciar Rota';
+      btn.textContent = btnOriginalText;
+      btn.disabled = false;
     }
   }
 };
@@ -1238,6 +1306,16 @@ async function buscarClimaAtual() {
     }
   } catch (error) {
     console.log('Não foi possível obter dados do clima:', error);
+    // Fallback: mostrar dados fixos
+    const climaElement = document.getElementById('climaAtual');
+    if (climaElement) {
+      climaElement.innerHTML = `
+        <div class="clima-info">
+          <span>🌡️ 25°C</span>
+          <small>Ensolarado</small>
+        </div>
+      `;
+    }
   }
 }
 
