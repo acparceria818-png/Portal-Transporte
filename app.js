@@ -1979,38 +1979,135 @@ window.excluirAviso = async function(avisoId) {
 };
 
 // ========== GESTÃO DE ESCALAS (ADMIN) ==========
-async function carregarEscalas() {
-  try {
-    const escalas = await getEscalas();
-    estadoApp.escalas = escalas;
-  } catch (erro) {
-    console.error('Erro ao carregar escalas:', erro);
-  }
-}
-
 // Carregar escala específica do motorista
 async function carregarEscalaMotorista(matricula) {
   try {
+    console.log('Buscando escala para matrícula:', matricula);
+    
     const escalas = await getEscalas();
-    const escalaMotorista = escalas.find(escala => escala.matricula === matricula);
+    console.log('Todas as escalas carregadas:', escalas);
+    
+    // Buscar escala pela matrícula
+    const escalaMotorista = escalas.find(escala => {
+      // Verifica se escala.matricula existe e compara com a matrícula buscada
+      const match = escala.matricula && escala.matricula.toString() === matricula.toString();
+      if (match) {
+        console.log('Escala encontrada:', escala);
+      }
+      return match;
+    });
     
     if (escalaMotorista) {
+      console.log('Escala encontrada para matrícula:', matricula);
       estadoApp.escalaMotorista = escalaMotorista;
       atualizarTelaEscala(escalaMotorista);
+      
+      // Mostrar notificação de sucesso
+      mostrarNotificacao('✅ Escala Carregada', 'Sua escala foi carregada com sucesso!');
+      
+      return escalaMotorista;
+    } else {
+      console.log('Nenhuma escala encontrada para matrícula:', matricula);
+      
+      // Mostrar mensagem na tela
+      const container = document.querySelector('.escala-dias');
+      if (container) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <i class="fas fa-calendar-times" style="font-size: 48px; color: #ff6b6b; margin-bottom: 16px;"></i>
+            <h4>Nenhuma escala encontrada</h4>
+            <p>Não foi encontrada uma escala para a matrícula <strong>${matricula}</strong>.</p>
+            <p>Entre em contato com a administração para cadastrar sua escala.</p>
+            <button class="btn btn-secondary" onclick="location.reload()">
+              <i class="fas fa-redo"></i> Tentar Novamente
+            </button>
+          </div>
+        `;
+      }
+      
+      // Mostrar notificação de aviso
+      mostrarNotificacao('⚠️ Escala não encontrada', `Matrícula ${matricula} não possui escala cadastrada.`);
+      
+      return null;
     }
   } catch (erro) {
     console.error('Erro ao carregar escala do motorista:', erro);
+    
+    // Mostrar mensagem de erro na tela
+    const container = document.querySelector('.escala-dias');
+    if (container) {
+      container.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ff6b6b; margin-bottom: 16px;"></i>
+          <h4>Erro ao carregar escala</h4>
+          <p>Ocorreu um erro ao carregar sua escala. Tente novamente.</p>
+          <p><small>Erro: ${erro.message}</small></p>
+          <button class="btn btn-secondary" onclick="location.reload()">
+            <i class="fas fa-redo"></i> Tentar Novamente
+          </button>
+        </div>
+      `;
+    }
+    
+    mostrarNotificacao('❌ Erro', 'Não foi possível carregar sua escala. Tente novamente.');
+    
+    return null;
   }
+}
+
+// Função para buscar escala por matrícula
+async function buscarEscalaPorMatricula(matricula) {
+  try {
+    const escalas = await getEscalas();
+    return escalas.find(escala => escala.matricula && escala.matricula.toString() === matricula.toString());
+  } catch (erro) {
+    console.error('Erro ao buscar escala por matrícula:', erro);
+    return null;
+  }
+}
+
+// Função para verificar se motorista tem escala
+async function motoristaTemEscala(matricula) {
+  const escala = await buscarEscalaPorMatricula(matricula);
+  return !!escala;
 }
 
 function atualizarTelaEscala(escala) {
   const container = document.querySelector('.escala-dias');
-  if (!container || !escala) return;
+  if (!container) {
+    console.error('Container .escala-dias não encontrado');
+    return;
+  }
+  
+  if (!escala) {
+    console.error('Escala é undefined ou null');
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <i class="fas fa-exclamation-circle"></i>
+        <h4>Escala não disponível</h4>
+        <p>Dados da escala não puderam ser carregados.</p>
+      </div>
+    `;
+    return;
+  }
+
+  console.log('Atualizando tela com escala:', escala);
   
   const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
   
+  // Verifica se a escala tem a estrutura correta
+  if (!escala.dias || !Array.isArray(escala.dias)) {
+    console.warn('Escala sem dias definidos ou estrutura inválida:', escala);
+    escala.dias = [];
+  }
+  
   container.innerHTML = diasSemana.map(dia => {
-    const diaEscala = escala.dias ? escala.dias.find(d => d.dia === dia) : null;
+    // Encontra o dia na escala
+    const diaEscala = escala.dias.find(d => {
+      return d && d.dia && d.dia.trim().toLowerCase() === dia.toLowerCase();
+    });
+    
+    console.log(`Dia ${dia}:`, diaEscala);
     
     return `
       <div class="dia-escala ${diaEscala ? '' : 'folga'}">
@@ -2027,6 +2124,27 @@ function atualizarTelaEscala(escala) {
       </div>
     `;
   }).join('');
+  
+  // Adiciona informações do motorista acima da escala
+  const infoHeader = document.querySelector('.escala-info');
+  if (infoHeader && !infoHeader.querySelector('.escala-motorista-info')) {
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'escala-motorista-info';
+    infoDiv.innerHTML = `
+      <div style="margin-bottom: 10px;">
+        <strong>Motorista:</strong> ${escala.motorista || 'Não informado'}
+      </div>
+      <div style="margin-bottom: 10px;">
+        <strong>Matrícula:</strong> ${escala.matricula || 'Não informada'}
+      </div>
+      ${escala.periodo ? `
+        <div>
+          <strong>Período:</strong> ${escala.periodo}
+        </div>
+      ` : ''}
+    `;
+    infoHeader.appendChild(infoDiv);
+  }
 }
 
 function getTurnoClass(horario) {
@@ -2057,6 +2175,9 @@ window.gerenciarEscalas = async function() {
           <button class="btn info" onclick="exportarEscalas()">
             <i class="fas fa-download"></i> Exportar
           </button>
+          <button class="btn warning" onclick="verificarEscalasDuplicadas()">
+            <i class="fas fa-search"></i> Verificar Duplicidades
+          </button>
         </div>
         
         <div class="escalas-admin-list">
@@ -2072,6 +2193,7 @@ window.gerenciarEscalas = async function() {
                 <div>
                   <h4>${escala.motorista || 'Sem nome'} - ${escala.matricula || 'Sem matrícula'}</h4>
                   <small class="escala-periodo">${escala.periodo || 'Sem período definido'}</small>
+                  <small class="escala-timestamp">Criada em: ${escala.timestamp ? new Date(escala.timestamp).toLocaleDateString('pt-BR') : 'Data desconhecida'}</small>
                 </div>
                 <div class="escala-admin-actions">
                   <button class="icon-btn" onclick="editarEscala('${escala.id}')" title="Editar">
@@ -2085,7 +2207,7 @@ window.gerenciarEscalas = async function() {
               
               <div class="escala-dias-admin">
                 ${['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(dia => {
-                  const diaEscala = escala.dias ? escala.dias.find(d => d.dia === dia) : null;
+                  const diaEscala = escala.dias ? escala.dias.find(d => d.dia && d.dia.trim().toLowerCase() === dia.toLowerCase()) : null;
                   return `
                     <div class="dia-escala-admin ${diaEscala ? '' : 'folga'}">
                       <div class="dia-nome-admin">${dia}</div>
@@ -2119,6 +2241,38 @@ window.gerenciarEscalas = async function() {
   }
 };
 
+// Nova função para verificar escalas duplicadas
+window.verificarEscalasDuplicadas = function() {
+  const escalas = estadoApp.escalas;
+  const duplicadas = {};
+  
+  escalas.forEach(escala => {
+    const matricula = escala.matricula;
+    if (matricula) {
+      if (!duplicadas[matricula]) {
+        duplicadas[matricula] = [];
+      }
+      duplicadas[matricula].push(escala);
+    }
+  });
+  
+  const duplicadosEncontrados = Object.keys(duplicadas).filter(matricula => duplicadas[matricula].length > 1);
+  
+  if (duplicadosEncontrados.length > 0) {
+    let mensagem = 'Escalas duplicadas encontradas:\n\n';
+    duplicadosEncontrados.forEach(matricula => {
+      mensagem += `Matrícula ${matricula}:\n`;
+      duplicadas[matricula].forEach((escala, index) => {
+        mensagem += `  ${index + 1}. ${escala.motorista || 'Sem nome'} (ID: ${escala.id})\n`;
+      });
+      mensagem += '\n';
+    });
+    alert(mensagem);
+  } else {
+    alert('✅ Nenhuma escala duplicada encontrada.');
+  }
+};
+
 window.criarNovaEscala = function() {
   const modal = document.createElement('div');
   modal.className = 'modal-back';
@@ -2135,6 +2289,7 @@ window.criarNovaEscala = function() {
       <div class="form-group">
         <label>Matrícula *</label>
         <input type="text" id="novaEscalaMatricula" class="form-input" placeholder="Matrícula" required>
+        <small class="form-help">Verifique se já existe uma escala para esta matrícula</small>
       </div>
       
       <div class="form-group">
@@ -2220,6 +2375,23 @@ window.salvarNovaEscala = async function() {
     return;
   }
   
+  // Verificar se já existe escala para esta matrícula
+  try {
+    const escalasExistentes = await getEscalas();
+    const escalaExistente = escalasExistentes.find(escala => 
+      escala.matricula && escala.matricula.toString() === matricula.toString()
+    );
+    
+    if (escalaExistente) {
+      const confirmar = confirm(`Já existe uma escala para a matrícula ${matricula}.\n\nMotorista: ${escalaExistente.motorista}\n\nDeseja continuar mesmo assim?`);
+      if (!confirmar) {
+        return;
+      }
+    }
+  } catch (erro) {
+    console.error('Erro ao verificar escala existente:', erro);
+  }
+  
   const dias = [];
   ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].forEach(dia => {
     const toggle = document.getElementById(`toggle-${dia}`);
@@ -2297,7 +2469,7 @@ window.editarEscala = async function(escalaId) {
           <h4><i class="fas fa-calendar-day"></i> Dias da Semana</h4>
           <div class="dias-escala-form">
             ${['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(dia => {
-              const diaEscala = escala.dias ? escala.dias.find(d => d.dia === dia) : null;
+              const diaEscala = escala.dias ? escala.dias.find(d => d.dia && d.dia.trim().toLowerCase() === dia.toLowerCase()) : null;
               const temDia = !!diaEscala;
               
               return `
@@ -2465,9 +2637,9 @@ window.exportarEscalas = function() {
   estadoApp.escalas.forEach(escala => {
     const dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     const diasInfo = dias.map(dia => {
-      const diaEscala = escala.dias ? escala.dias.find(d => d.dia === dia) : null;
+      const diaEscala = escala.dias ? escala.dias.find(d => d.dia && d.dia.trim().toLowerCase() === dia.toLowerCase()) : null;
       if (diaEscala) {
-        return `${diaEscala.horario} - ${diaEscala.rota || ''}`;
+        return `${diaEscala.horario || ''} - ${diaEscala.rota || ''}${diaEscala.onibus ? ` (${diaEscala.onibus})` : ''}`;
       }
       return 'FOLGA';
     });
@@ -2490,6 +2662,48 @@ window.exportarEscalas = function() {
   mostrarNotificacao('✅ Escalas Exportadas', 'Download iniciado!');
 };
 
+// Funções auxiliares para integração com o sistema
+async function inicializarEscalaMotorista() {
+  const matricula = estadoApp.usuario?.matricula;
+  if (matricula) {
+    console.log('Inicializando escala para matrícula:', matricula);
+    await carregarEscalaMotorista(matricula);
+  } else {
+    console.log('Matrícula não encontrada no estadoApp.usuario');
+  }
+}
+
+// Função para buscar escalas por nome do motorista (para busca)
+async function buscarEscalasPorNome(nome) {
+  try {
+    const escalas = await getEscalas();
+    return escalas.filter(escala => 
+      escala.motorista && escala.motorista.toLowerCase().includes(nome.toLowerCase())
+    );
+  } catch (erro) {
+    console.error('Erro ao buscar escalas por nome:', erro);
+    return [];
+  }
+}
+
+// Função para validar se uma escala está completa
+function validarEscalaCompleta(escala) {
+  const erros = [];
+  
+  if (!escala.motorista) erros.push('Nome do motorista é obrigatório');
+  if (!escala.matricula) erros.push('Matrícula é obrigatória');
+  
+  // Verificar se há pelo menos um dia de trabalho
+  const diasTrabalho = escala.dias ? escala.dias.filter(dia => dia && dia.horario && dia.horario !== '00:00 - 00:00') : [];
+  if (diasTrabalho.length === 0) {
+    erros.push('A escala deve ter pelo menos um dia de trabalho');
+  }
+  
+  return {
+    valida: erros.length === 0,
+    erros: erros
+  };
+}
 // ========== FUNÇÕES DE EMERGÊNCIA (ADMIN) ==========
 window.resolverEmergenciaAdmin = async function(emergenciaId) {
   if (!confirm('Marcar esta emergência como resolvida?')) {
