@@ -391,15 +391,18 @@
     </div>
   </section>
 
-  <!-- TELA: ROTAS PASSAGEIRO -->
+  <!-- TELA: ROTAS PASSAGEIRO (NOVA) -->
   <section id="tela-rotas-passageiro" class="tela hidden">
     <div class="section-header">
-      <h2><i class="fas fa-map-marked-alt"></i> Rotas e Motoristas</h2>
-      <p>Veja os motoristas ativos em cada rota</p>
+      <h2><i class="fas fa-route"></i> Todas as Rotas Disponíveis</h2>
+      <p>Veja todas as rotas da empresa e motoristas ativos em tempo real</p>
     </div>
     
     <div class="rotas-passageiro-container" id="rotasPassageiroContainer">
-      <!-- Conteúdo carregado dinamicamente -->
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Carregando informações das rotas...</p>
+      </div>
     </div>
     
     <div class="action-footer">
@@ -792,28 +795,28 @@
       </button>
     </div>
   </section>
-</main>
 
   <!-- TELA: RELATÓRIOS -->
-<section id="tela-relatorios" class="tela hidden">
-  <div class="section-header">
-    <h2><i class="fas fa-chart-bar"></i> Relatórios e Dashboard</h2>
-    <p>Estatísticas e análises do sistema</p>
-  </div>
-  
-  <div class="relatorios-container" id="relatoriosContainer">
-    <div class="loading-state">
-      <i class="fas fa-spinner fa-spin"></i>
-      <p>Carregando relatórios...</p>
+  <section id="tela-relatorios" class="tela hidden">
+    <div class="section-header">
+      <h2><i class="fas fa-chart-bar"></i> Relatórios e Dashboard</h2>
+      <p>Estatísticas e análises do sistema</p>
     </div>
-  </div>
-  
-  <div class="action-footer">
-    <button class="btn btn-secondary" onclick="mostrarTela('tela-admin-dashboard')">
-      <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
-    </button>
-  </div>
-</section>
+    
+    <div class="relatorios-container" id="relatoriosContainer">
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Carregando relatórios...</p>
+      </div>
+    </div>
+    
+    <div class="action-footer">
+      <button class="btn btn-secondary" onclick="mostrarTela('tela-admin-dashboard')">
+        <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
+      </button>
+    </div>
+  </section>
+</main>
 
 <!-- MODAIS -->
 <div id="avisosModalBack" class="modal-back" aria-hidden="true" style="display:none">
