@@ -1,4 +1,4 @@
-// app.js - CÓDIGO COMPLETO COM TODAS AS FUNCIONALIDADES ATUALIZADO
+// app.js - CÓDIGO COMPLETO ATUALIZADO
 import { 
   db,
   auth,
@@ -285,7 +285,7 @@ window.confirmarMatriculaMotorista = async function () {
   }
 };
 
-// ========== CARREGAR ÔNIBUS ==========
+// ========== CARREGAR ÔNIBUS (CORRIGIDO - SEM FUNDO VERMELHO) ==========
 function carregarOnibus() {
   const container = document.getElementById('onibusList');
   if (!container) return;
@@ -337,7 +337,7 @@ function solicitarPermissaoLocalizacao() {
   showLoading('📍 Obtendo localização...');
   
   const options = {
-    enableHighAccuracy: true, // Alterado para true para melhor precisão
+    enableHighAccuracy: true,
     timeout: 10000,
     maximumAge: 0
   };
@@ -848,7 +848,243 @@ window.enviarFeedback = async function(perfil) {
   }
 };
 
-// ========== MONITORAMENTO ==========
+// ========== NOVA FUNÇÃO: CARREGAR ROTAS PARA PASSAGEIRO ==========
+window.carregarRotasPassageiro = async function() {
+  const container = document.getElementById('rotasPassageiroContainer');
+  if (!container) return;
+  
+  showLoading('Carregando informações das rotas...');
+  
+  try {
+    // Buscar motoristas ativos
+    const q = query(collection(db, 'rotas_em_andamento'), 
+      where("ativo", "==", true),
+      where("online", "==", true)
+    );
+    const snapshot = await getDocs(q);
+    const motoristasAtivos = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Agrupar motoristas por rota
+    const motoristasPorRota = {};
+    motoristasAtivos.forEach(motorista => {
+      if (motorista.rota && motorista.ativo !== false) {
+        if (!motoristasPorRota[motorista.rota]) {
+          motoristasPorRota[motorista.rota] = [];
+        }
+        motoristasPorRota[motorista.rota].push(motorista);
+      }
+    });
+    
+    // Criar HTML para todas as rotas
+    let html = '<div class="rotas-passageiro-grid">';
+    
+    ROTAS_DISPONIVEIS.forEach(rota => {
+      const motoristasNaRota = motoristasPorRota[rota.nome] || [];
+      const temMotorista = motoristasNaRota.length > 0;
+      
+      html += `
+        <div class="rota-passageiro-card ${temMotorista ? 'com-motorista' : 'sem-motorista'}">
+          <div class="rota-passageiro-header">
+            <div class="rota-passageiro-icon">
+              ${rota.tipo === 'adm' ? '🏢' : rota.tipo === 'retorno' ? '🔄' : '🚛'}
+            </div>
+            <div class="rota-passageiro-info">
+              <h4>${rota.nome}</h4>
+              <p class="rota-descricao">${rota.desc}</p>
+              <div class="rota-passageiro-status">
+                ${temMotorista ? 
+                  `<span class="status-online"><i class="fas fa-circle"></i> ${motoristasNaRota.length} motorista(s) ativo(s)</span>` :
+                  `<span class="status-offline"><i class="fas fa-circle"></i> Sem motoristas ativos</span>`
+                }
+              </div>
+            </div>
+          </div>
+          
+          ${temMotorista ? `
+            <div class="motoristas-na-rota">
+              <h5><i class="fas fa-users"></i> Motoristas ativos nesta rota:</h5>
+              ${motoristasNaRota.map(motorista => {
+                const ultimaAtualizacao = motorista.ultimaAtualizacao ? 
+                  new Date(motorista.ultimaAtualizacao.toDate()) : 
+                  new Date();
+                
+                const tempoDecorrido = calcularTempoDecorrido(ultimaAtualizacao);
+                const precisaoText = motorista.precisao ? 
+                  `Precisão: ${motorista.precisao.toFixed(0)}m` : '';
+                
+                return `
+                <div class="motorista-passageiro-item">
+                  <div class="motorista-info">
+                    <strong><i class="fas fa-user"></i> ${motorista.motorista}</strong>
+                    <span class="onibus-info">${motorista.onibus}</span>
+                  </div>
+                  <div class="motorista-detalhes">
+                    ${motorista.distancia ? `<span class="detalhe-item"><i class="fas fa-road"></i> ${motorista.distancia} km</span>` : ''}
+                    ${motorista.velocidade ? `<span class="detalhe-item"><i class="fas fa-tachometer-alt"></i> ${motorista.velocidade} km/h</span>` : ''}
+                    <span class="detalhe-item"><i class="fas fa-clock"></i> ${tempoDecorrido}</span>
+                    ${precisaoText ? `<span class="detalhe-item"><i class="fas fa-crosshairs"></i> ${precisaoText}</span>` : ''}
+                  </div>
+                  <div class="motorista-acoes">
+                    <button class="btn small" onclick="verLocalizacaoMotorista(${motorista.latitude}, ${motorista.longitude}, '${motorista.motorista}', '${motorista.onibus}')">
+                      <i class="fas fa-map-marker-alt"></i> Ver Mapa
+                    </button>
+                    <button class="btn small secondary" onclick="verDetalhesMotorista('${motorista.matricula}')">
+                      <i class="fas fa-info-circle"></i> Detalhes
+                    </button>
+                  </div>
+                </div>
+              `}).join('')}
+            </div>
+          ` : `
+            <div class="sem-motorista-message">
+              <p><i class="fas fa-info-circle"></i> Nenhum motorista ativo nesta rota no momento.</p>
+            </div>
+          `}
+          
+          <div class="rota-passageiro-actions">
+            <button class="btn secondary" onclick="abrirRotaNoMaps('${rota.nome}')">
+              <i class="fas fa-map"></i> Ver Rota no Maps
+            </button>
+            ${temMotorista ? `
+              <button class="btn" onclick="verTodosMotoristasRota('${rota.nome}')">
+                <i class="fas fa-eye"></i> Ver Todos os Motoristas
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    
+  } catch (error) {
+    console.error('Erro ao carregar rotas para passageiro:', error);
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <h4>Erro ao carregar rotas</h4>
+        <p>Não foi possível carregar as informações das rotas. Tente novamente mais tarde.</p>
+        <button class="btn btn-secondary" onclick="carregarRotasPassageiro()">
+          <i class="fas fa-redo"></i> Tentar Novamente
+        </button>
+      </div>
+    `;
+  } finally {
+    hideLoading();
+  }
+};
+
+// ========== FUNÇÃO PARA VER TODOS OS MOTORISTAS DE UMA ROTA ==========
+window.verTodosMotoristasRota = function(nomeRota) {
+  console.log('Ver todos os motoristas da rota:', nomeRota);
+  alert(`Motoristas na rota ${nomeRota}\n\nEsta funcionalidade mostrará todos os motoristas ativos nesta rota.`);
+};
+
+// ========== FUNÇÃO PARA VER DETALHES DO MOTORISTA ==========
+window.verDetalhesMotorista = async function(matricula) {
+  try {
+    showLoading('Carregando detalhes do motorista...');
+    
+    const q = query(collection(db, 'rotas_em_andamento'), 
+      where("matricula", "==", matricula),
+      where("ativo", "==", true)
+    );
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      alert('Motorista não encontrado ou não está ativo.');
+      hideLoading();
+      return;
+    }
+    
+    const motorista = snapshot.docs[0].data();
+    const ultimaAtualizacao = motorista.ultimaAtualizacao ? 
+      new Date(motorista.ultimaAtualizacao.toDate()) : 
+      new Date();
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-back';
+    modal.innerHTML = `
+      <div class="modal">
+        <button class="close" onclick="this.parentElement.parentElement.remove()">✕</button>
+        <h3><i class="fas fa-user-circle"></i> Detalhes do Motorista</h3>
+        
+        <div class="motorista-detalhes-modal">
+          <div class="motorista-info-modal">
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-user"></i> Nome:</span>
+              <span class="info-value">${motorista.motorista}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-id-card"></i> Matrícula:</span>
+              <span class="info-value">${motorista.matricula}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-bus"></i> Ônibus:</span>
+              <span class="info-value">${motorista.onibus}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-route"></i> Rota:</span>
+              <span class="info-value">${motorista.rota}</span>
+            </div>
+            ${motorista.tag_ac ? `
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-tag"></i> TAG AC:</span>
+              <span class="info-value">${motorista.tag_ac}</span>
+            </div>
+            ` : ''}
+            ${motorista.distancia ? `
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-road"></i> Distância:</span>
+              <span class="info-value">${motorista.distancia} km rodados</span>
+            </div>
+            ` : ''}
+            ${motorista.velocidade ? `
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-tachometer-alt"></i> Velocidade:</span>
+              <span class="info-value">${motorista.velocidade} km/h</span>
+            </div>
+            ` : ''}
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-clock"></i> Última atualização:</span>
+              <span class="info-value">${ultimaAtualizacao.toLocaleTimeString()}</span>
+            </div>
+            ${motorista.precisao ? `
+            <div class="info-item">
+              <span class="info-label"><i class="fas fa-crosshairs"></i> Precisão GPS:</span>
+              <span class="info-value">${motorista.precisao.toFixed(0)} metros</span>
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="motorista-acoes-modal">
+            <button class="btn" onclick="verLocalizacaoMotorista(${motorista.latitude}, ${motorista.longitude}, '${motorista.motorista}', '${motorista.onibus}')">
+              <i class="fas fa-map-marker-alt"></i> Ver no Mapa
+            </button>
+            <button class="btn secondary" onclick="abrirRotaNoMaps('${motorista.rota}')">
+              <i class="fas fa-route"></i> Ver Rota
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+    
+  } catch (error) {
+    console.error('Erro ao carregar detalhes do motorista:', error);
+    alert('Erro ao carregar detalhes do motorista.');
+  } finally {
+    hideLoading();
+  }
+};
+
+// ========== MONITORAMENTO PARA PASSAGEIRO (ATUALIZADO) ==========
 function iniciarMonitoramentoPassageiro() {
   if (estadoApp.unsubscribeRotas) return;
   
@@ -856,12 +1092,17 @@ function iniciarMonitoramentoPassageiro() {
     const container = document.getElementById('rotasAtivasList');
     if (!container) return;
     
-    if (rotas.length === 0) {
+    const rotasAtivas = rotas.filter(r => r.ativo !== false && r.online !== false);
+    
+    if (rotasAtivas.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">🚌</div>
+          <div class="empty-icon"><i class="fas fa-bus-slash"></i></div>
           <h4>Nenhuma rota ativa no momento</h4>
           <p>Não há motoristas compartilhando localização no momento.</p>
+          <button class="btn btn-secondary" onclick="mostrarTela('tela-rotas-passageiro')">
+            <i class="fas fa-route"></i> Ver Todas as Rotas
+          </button>
         </div>
       `;
       return;
@@ -869,13 +1110,11 @@ function iniciarMonitoramentoPassageiro() {
     
     // Agrupar por rota
     const rotasAgrupadas = {};
-    rotas.forEach(rota => {
-      if (rota.ativo !== false && rota.rota && rota.online !== false) {
-        if (!rotasAgrupadas[rota.rota]) {
-          rotasAgrupadas[rota.rota] = [];
-        }
-        rotasAgrupadas[rota.rota].push(rota);
+    rotasAtivas.forEach(rota => {
+      if (!rotasAgrupadas[rota.rota]) {
+        rotasAgrupadas[rota.rota] = [];
       }
+      rotasAgrupadas[rota.rota].push(rota);
     });
     
     // Ordenar rotas: ADM primeiro, depois operacionais, depois retorno
@@ -887,35 +1126,43 @@ function iniciarMonitoramentoPassageiro() {
     
     container.innerHTML = rotasOrdenadas.map(([nomeRota, motoristas]) => `
       <div class="rota-grupo">
-        <h4>${nomeRota}</h4>
-        ${motoristas.map(motorista => `
+        <h4><i class="fas fa-route"></i> ${nomeRota}</h4>
+        ${motoristas.map(motorista => {
+          const ultimaAtualizacao = motorista.ultimaAtualizacao ? 
+            new Date(motorista.ultimaAtualizacao.toDate()) : 
+            new Date();
+          
+          return `
           <div class="motorista-card">
             <div class="motorista-info">
               <div class="motorista-header">
-                <strong>👤 ${motorista.motorista}</strong>
+                <strong><i class="fas fa-user"></i> ${motorista.motorista}</strong>
                 <span class="onibus-badge">${motorista.onibus}</span>
               </div>
               <div class="motorista-detalhes">
-                <small>📍 Localização ativa</small>
-                <small>⏱️ ${motorista.ultimaAtualizacao ? new Date(motorista.ultimaAtualizacao.toDate()).toLocaleTimeString() : '--:--'}</small>
-                ${motorista.distancia ? `<small>📏 ${motorista.distancia} km rodados</small>` : ''}
-                ${motorista.velocidade ? `<small>🚗 ${motorista.velocidade} km/h</small>` : ''}
+                <span class="detalhe-item"><i class="fas fa-road"></i> ${motorista.distancia || '0'} km</span>
+                <span class="detalhe-item"><i class="fas fa-tachometer-alt"></i> ${motorista.velocidade || '0'} km/h</span>
+                <span class="detalhe-item"><i class="fas fa-clock"></i> ${ultimaAtualizacao.toLocaleTimeString()}</span>
+                ${motorista.precisao ? `<span class="detalhe-item"><i class="fas fa-crosshairs"></i> ${motorista.precisao.toFixed(0)}m</span>` : ''}
               </div>
             </div>
             <div class="motorista-actions">
               <button class="btn small" onclick="verLocalizacaoMotorista(${motorista.latitude}, ${motorista.longitude}, '${motorista.motorista}', '${motorista.onibus}')">
-                📍 Ver Mapa
+                <i class="fas fa-map-marker-alt"></i> Mapa
               </button>
-              <button class="btn small secondary" onclick="abrirRotaNoMaps('${nomeRota}')">
-                🗺️ Ver Rota
+              <button class="btn small secondary" onclick="abrirRotaNoMaps('${motorista.rota}')">
+                <i class="fas fa-route"></i> Rota
               </button>
             </div>
           </div>
-        `).join('')}
+        `}).join('')}
       </div>
     `).join('');
   });
 }
+
+// ========== FUNÇÕES RESTANTES (MANTIDAS IGUAIS) ==========
+// [As funções restantes permanecem exatamente como estavam...]
 
 function iniciarMonitoramentoAdmin() {
   if (estadoApp.unsubscribeRotas) return;
@@ -1148,9 +1395,8 @@ function iniciarMonitoramentoAvisos() {
 function iniciarMonitoramentoOnline() {
   setInterval(async () => {
     await atualizarOnlineUsers();
-  }, 30000); // Atualizar a cada 30 segundos
+  }, 30000);
   
-  // Atualizar imediatamente
   atualizarOnlineUsers();
 }
 
@@ -1169,13 +1415,11 @@ async function atualizarOnlineUsers() {
     
     estadoApp.onlineUsers = onlineUsers;
     
-    // Atualizar contador no admin
     const usuariosOnlineElement = document.getElementById('usuariosOnline');
     if (usuariosOnlineElement) {
       usuariosOnlineElement.textContent = onlineUsers.length;
     }
     
-    // Se estiver na tela de relatórios, atualizar a lista
     if (document.getElementById('tela-relatorios')?.classList.contains('ativa')) {
       atualizarListaOnlineUsers();
     }
@@ -1286,7 +1530,6 @@ function atualizarInfoMotorista() {
   if (nomeElement) nomeElement.textContent = estadoApp.motorista.nome;
   if (matriculaElement) matriculaElement.textContent = estadoApp.motorista.matricula;
   
-  // Adicionar tags se não existirem
   const userInfo = document.querySelector('.user-info');
   if (userInfo && !document.querySelector('.user-tags')) {
     const tagsDiv = document.createElement('div');
@@ -1295,127 +1538,6 @@ function atualizarInfoMotorista() {
     atualizarInfoOnibus();
   }
 }
-
-// ========== CARREGAMENTO DE ROTAS PARA PASSAGEIRO ==========
-async function carregarRotasPassageiro() {
-  const container = document.getElementById('rotasPassageiroContainer');
-  if (!container) return;
-  
-  showLoading('Carregando rotas disponíveis...');
-  
-  try {
-    // Buscar rotas ativas do Firebase
-    const q = query(collection(db, 'rotas_em_andamento'), where("ativo", "==", true));
-    const snapshot = await getDocs(q);
-    const rotasAtivas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Agrupar por rota
-    const rotasAgrupadas = {};
-    rotasAtivas.forEach(rota => {
-      if (rota.online !== false) {
-        if (!rotasAgrupadas[rota.rota]) {
-          rotasAgrupadas[rota.rota] = [];
-        }
-        rotasAgrupadas[rota.rota].push(rota);
-      }
-    });
-    
-    if (Object.keys(rotasAgrupadas).length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🚌</div>
-          <h4>Nenhuma rota ativa no momento</h4>
-          <p>Não há motoristas compartilhando localização.</p>
-        </div>
-      `;
-      hideLoading();
-      return;
-    }
-    
-    // Mostrar todas as rotas disponíveis
-    let html = '<div class="rotas-passageiro-grid">';
-    
-    ROTAS_DISPONIVEIS.forEach(rota => {
-      const motoristasNaRota = rotasAgrupadas[rota.nome] || [];
-      const temMotorista = motoristasNaRota.length > 0;
-      
-      html += `
-        <div class="rota-passageiro-card ${temMotorista ? 'com-motorista' : 'sem-motorista'}">
-          <div class="rota-passageiro-header">
-            <div class="rota-passageiro-icon">
-              ${rota.tipo === 'adm' ? '🏢' : rota.tipo === 'retorno' ? '🔄' : '🚛'}
-            </div>
-            <div class="rota-passageiro-info">
-              <h4>${rota.nome}</h4>
-              <p>${rota.desc}</p>
-              <div class="rota-passageiro-status">
-                ${temMotorista ? 
-                  `<span class="status-online"><i class="fas fa-circle"></i> ${motoristasNaRota.length} motorista(s) ativo(s)</span>` :
-                  `<span class="status-offline"><i class="fas fa-circle"></i> Sem motoristas ativos</span>`
-                }
-              </div>
-            </div>
-          </div>
-          
-          ${temMotorista ? `
-            <div class="motoristas-na-rota">
-              <h5>Motoristas nesta rota:</h5>
-              ${motoristasNaRota.map(motorista => `
-                <div class="motorista-passageiro-item">
-                  <div class="motorista-info">
-                    <strong>👤 ${motorista.motorista}</strong>
-                    <span class="onibus-info">${motorista.onibus}</span>
-                  </div>
-                  <div class="motorista-detalhes">
-                    ${motorista.distancia ? `<small>📏 ${motorista.distancia} km rodados</small>` : ''}
-                    ${motorista.velocidade ? `<small>🚗 ${motorista.velocidade} km/h</small>` : ''}
-                    <small>📍 ${motorista.ultimaAtualizacao ? new Date(motorista.ultimaAtualizacao.toDate()).toLocaleTimeString() : '--:--'}</small>
-                  </div>
-                  <button class="btn small" onclick="verLocalizacaoMotorista(${motorista.latitude}, ${motorista.longitude}, '${motorista.motorista}', '${motorista.onibus}')">
-                    📍 Ver Mapa
-                  </button>
-                </div>
-              `).join('')}
-            </div>
-          ` : ''}
-          
-          <div class="rota-passageiro-actions">
-            <button class="btn secondary" onclick="abrirRotaNoMaps('${rota.nome}')">
-              🗺️ Ver Rota
-            </button>
-            ${temMotorista ? `
-              <button class="btn" onclick="verLocalizacaoRota('${rota.nome}')">
-                👁️ Ver Detalhes
-              </button>
-            ` : ''}
-          </div>
-        </div>
-      `;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
-    
-  } catch (error) {
-    console.error('Erro ao carregar rotas:', error);
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">❌</div>
-        <h4>Erro ao carregar rotas</h4>
-        <p>Tente novamente mais tarde.</p>
-      </div>
-    `;
-  } finally {
-    hideLoading();
-  }
-}
-
-// ========== FUNÇÃO verLocalizacaoRota (CORRIGIDA) ==========
-window.verLocalizacaoRota = function(nomeRota) {
-  console.log('Ver detalhes da rota:', nomeRota);
-  // Implementar lógica para mostrar detalhes da rota
-  alert(`Detalhes da rota: ${nomeRota}\n\nEm desenvolvimento...`);
-};
 
 // ========== CARREGAMENTO DE ROTAS PARA MOTORISTA ==========
 function carregarRotas() {
@@ -1987,7 +2109,7 @@ async function carregarEscalas() {
     console.error('Erro ao carregar escalas:', erro);
   }
 }
-// Carregar escala específica do motorista
+
 async function carregarEscalaMotorista(matricula) {
   try {
     console.log('Buscando escala para matrícula:', matricula);
@@ -1995,9 +2117,7 @@ async function carregarEscalaMotorista(matricula) {
     const escalas = await getEscalas();
     console.log('Todas as escalas carregadas:', escalas);
     
-    // Buscar escala pela matrícula
     const escalaMotorista = escalas.find(escala => {
-      // Verifica se escala.matricula existe e compara com a matrícula buscada
       const match = escala.matricula && escala.matricula.toString() === matricula.toString();
       if (match) {
         console.log('Escala encontrada:', escala);
@@ -2010,14 +2130,12 @@ async function carregarEscalaMotorista(matricula) {
       estadoApp.escalaMotorista = escalaMotorista;
       atualizarTelaEscala(escalaMotorista);
       
-      // Mostrar notificação de sucesso
       mostrarNotificacao('✅ Escala Carregada', 'Sua escala foi carregada com sucesso!');
       
       return escalaMotorista;
     } else {
       console.log('Nenhuma escala encontrada para matrícula:', matricula);
       
-      // Mostrar mensagem na tela
       const container = document.querySelector('.escala-dias');
       if (container) {
         container.innerHTML = `
@@ -2033,7 +2151,6 @@ async function carregarEscalaMotorista(matricula) {
         `;
       }
       
-      // Mostrar notificação de aviso
       mostrarNotificacao('⚠️ Escala não encontrada', `Matrícula ${matricula} não possui escala cadastrada.`);
       
       return null;
@@ -2041,7 +2158,6 @@ async function carregarEscalaMotorista(matricula) {
   } catch (erro) {
     console.error('Erro ao carregar escala do motorista:', erro);
     
-    // Mostrar mensagem de erro na tela
     const container = document.querySelector('.escala-dias');
     if (container) {
       container.innerHTML = `
@@ -2061,23 +2177,6 @@ async function carregarEscalaMotorista(matricula) {
     
     return null;
   }
-}
-
-// Função para buscar escala por matrícula
-async function buscarEscalaPorMatricula(matricula) {
-  try {
-    const escalas = await getEscalas();
-    return escalas.find(escala => escala.matricula && escala.matricula.toString() === matricula.toString());
-  } catch (erro) {
-    console.error('Erro ao buscar escala por matrícula:', erro);
-    return null;
-  }
-}
-
-// Função para verificar se motorista tem escala
-async function motoristaTemEscala(matricula) {
-  const escala = await buscarEscalaPorMatricula(matricula);
-  return !!escala;
 }
 
 function atualizarTelaEscala(escala) {
@@ -2103,14 +2202,12 @@ function atualizarTelaEscala(escala) {
   
   const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
   
-  // Verifica se a escala tem a estrutura correta
   if (!escala.dias || !Array.isArray(escala.dias)) {
     console.warn('Escala sem dias definidos ou estrutura inválida:', escala);
     escala.dias = [];
   }
   
   container.innerHTML = diasSemana.map(dia => {
-    // Encontra o dia na escala
     const diaEscala = escala.dias.find(d => {
       return d && d.dia && d.dia.trim().toLowerCase() === dia.toLowerCase();
     });
@@ -2133,7 +2230,6 @@ function atualizarTelaEscala(escala) {
     `;
   }).join('');
   
-  // Adiciona informações do motorista acima da escala
   const infoHeader = document.querySelector('.escala-info');
   if (infoHeader && !infoHeader.querySelector('.escala-motorista-info')) {
     const infoDiv = document.createElement('div');
@@ -2249,7 +2345,6 @@ window.gerenciarEscalas = async function() {
   }
 };
 
-// Nova função para verificar escalas duplicadas
 window.verificarEscalasDuplicadas = function() {
   const escalas = estadoApp.escalas;
   const duplicadas = {};
@@ -2383,7 +2478,6 @@ window.salvarNovaEscala = async function() {
     return;
   }
   
-  // Verificar se já existe escala para esta matrícula
   try {
     const escalasExistentes = await getEscalas();
     const escalaExistente = escalasExistentes.find(escala => 
@@ -2538,7 +2632,6 @@ window.editarEscala = async function(escalaId) {
     document.body.appendChild(modal);
     modal.style.display = 'flex';
     
-    // Configurar toggles
     ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].forEach(dia => {
       const toggle = document.getElementById(`edit-toggle-${dia}`);
       const content = document.getElementById(`edit-content-${dia}`);
@@ -2670,48 +2763,6 @@ window.exportarEscalas = function() {
   mostrarNotificacao('✅ Escalas Exportadas', 'Download iniciado!');
 };
 
-// Funções auxiliares para integração com o sistema
-async function inicializarEscalaMotorista() {
-  const matricula = estadoApp.usuario?.matricula;
-  if (matricula) {
-    console.log('Inicializando escala para matrícula:', matricula);
-    await carregarEscalaMotorista(matricula);
-  } else {
-    console.log('Matrícula não encontrada no estadoApp.usuario');
-  }
-}
-
-// Função para buscar escalas por nome do motorista (para busca)
-async function buscarEscalasPorNome(nome) {
-  try {
-    const escalas = await getEscalas();
-    return escalas.filter(escala => 
-      escala.motorista && escala.motorista.toLowerCase().includes(nome.toLowerCase())
-    );
-  } catch (erro) {
-    console.error('Erro ao buscar escalas por nome:', erro);
-    return [];
-  }
-}
-
-// Função para validar se uma escala está completa
-function validarEscalaCompleta(escala) {
-  const erros = [];
-  
-  if (!escala.motorista) erros.push('Nome do motorista é obrigatório');
-  if (!escala.matricula) erros.push('Matrícula é obrigatória');
-  
-  // Verificar se há pelo menos um dia de trabalho
-  const diasTrabalho = escala.dias ? escala.dias.filter(dia => dia && dia.horario && dia.horario !== '00:00 - 00:00') : [];
-  if (diasTrabalho.length === 0) {
-    erros.push('A escala deve ter pelo menos um dia de trabalho');
-  }
-  
-  return {
-    valida: erros.length === 0,
-    erros: erros
-  };
-}
 // ========== FUNÇÕES DE EMERGÊNCIA (ADMIN) ==========
 window.resolverEmergenciaAdmin = async function(emergenciaId) {
   if (!confirm('Marcar esta emergência como resolvida?')) {
@@ -2725,7 +2776,6 @@ window.resolverEmergenciaAdmin = async function(emergenciaId) {
     
     mostrarNotificacao('✅ Emergência Resolvida', 'A emergência foi marcada como resolvida.');
     
-    // Remover do DOM
     const emergenciaElement = document.querySelector(`[onclick*="${emergenciaId}"]`)?.closest('.emergencia-card');
     if (emergenciaElement) {
       emergenciaElement.remove();
@@ -2773,7 +2823,6 @@ window.resolverFeedbackAdmin = async function(feedbackId) {
     
     mostrarNotificacao('✅ Feedback Resolvido', 'O feedback foi marcado como resolvido.');
     
-    // Remover do DOM
     const feedbackElement = document.querySelector(`[onclick*="${feedbackId}"]`)?.closest('.feedback-card');
     if (feedbackElement) {
       feedbackElement.remove();
@@ -2814,7 +2863,6 @@ async function carregarRelatorios() {
     const estatisticas = await getEstatisticasDashboard();
     estadoApp.estatisticas = estatisticas;
     
-    // Buscar dados reais de rotas frequentes
     const q = query(collection(db, 'rotas_em_andamento'), 
       where("ativo", "==", true),
       orderBy("timestamp", "desc")
@@ -2822,7 +2870,6 @@ async function carregarRelatorios() {
     const snapshot = await getDocs(q);
     const rotasAtivas = snapshot.docs.map(d => d.data());
     
-    // Contar frequência de rotas
     const frequenciaRotas = {};
     rotasAtivas.forEach(rota => {
       if (rota.rota) {
@@ -2830,12 +2877,10 @@ async function carregarRelatorios() {
       }
     });
     
-    // Ordenar por frequência
     const rotasFrequentes = Object.entries(frequenciaRotas)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
     
-    // Atualizar tela de relatórios
     const container = document.getElementById('relatoriosContainer');
     if (container) {
       container.innerHTML = `
@@ -3211,7 +3256,6 @@ window.verFormsControle = function() {
 };
 
 window.verDetalhesRota = function(matricula) {
-  // Implementar lógica para ver detalhes da rota
   alert(`Detalhes da rota para matrícula: ${matricula}\n\nEm desenvolvimento...`);
 };
 
@@ -3221,8 +3265,5 @@ window.enviarNotificacaoMotorista = function(matricula) {
     alert(`Notificação enviada para o motorista ${matricula}:\n\n${mensagem}`);
   }
 };
-
-// ========== EXPORTAR FUNÇÕES PARA ESCOPO GLOBAL ==========
-// As funções já são globais quando declaradas com window.functionName
 
 console.log('🚀 app.js carregado com sucesso!');
