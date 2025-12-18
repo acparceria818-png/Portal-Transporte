@@ -661,7 +661,6 @@ textarea.form-input {
 }
 
 .onibus-card {
-  background: var(--white);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   display: flex;
