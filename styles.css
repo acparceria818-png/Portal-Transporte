@@ -2074,4 +2074,388 @@ body.dark .loading-overlay {
 .w-100 { width: 100%; }
 .h-100 { height: 100%; }
 
+/* ========== NOVOS ESTILOS ========== */
+
+/* Tela de Rotas para Passageiro */
+.rotas-passageiro-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: var(--space-lg);
+}
+
+.rota-passageiro-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  border: 2px solid var(--gray-light);
+  transition: all var(--transition-fast);
+}
+
+.rota-passageiro-card.com-motorista {
+  border-color: var(--success);
+  border-left: 4px solid var(--success);
+}
+
+.rota-passageiro-card.sem-motorista {
+  border-color: var(--gray);
+  border-left: 4px solid var(--gray);
+}
+
+.rota-passageiro-header {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.rota-passageiro-icon {
+  font-size: var(--font-size-2xl);
+  width: 50px;
+  height: 50px;
+  background: var(--gray-light);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rota-passageiro-info h4 {
+  margin-bottom: var(--space-xs);
+}
+
+.rota-passageiro-status {
+  margin-top: var(--space-xs);
+}
+
+.status-online {
+  color: var(--success);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.status-offline {
+  color: var(--gray);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.motoristas-na-rota {
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background: var(--gray-light);
+  border-radius: var(--radius-md);
+}
+
+.motoristas-na-rota h5 {
+  margin-bottom: var(--space-sm);
+  color: var(--secondary);
+}
+
+.motorista-passageiro-item {
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  border: 1px solid var(--gray-light);
+}
+
+.motorista-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.onibus-info {
+  background: var(--primary-light);
+  color: var(--white);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+}
+
+.motorista-detalhes {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.motorista-detalhes small {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.rota-passageiro-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Motorista Detalhe Card */
+.motorista-detalhe-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  border: 2px solid var(--primary-light);
+}
+
+.motorista-detalhe-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.motorista-avatar {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-2xl);
+  color: var(--white);
+}
+
+.motorista-info-detalhe h4 {
+  margin-bottom: var(--space-xs);
+}
+
+.motorista-detalhe-info {
+  margin-bottom: var(--space-lg);
+}
+
+.motorista-detalhe-info .info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--gray-light);
+}
+
+.motorista-detalhe-info .info-row:last-child {
+  border-bottom: none;
+}
+
+.motorista-detalhe-info .info-row span:first-child {
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.motorista-detalhe-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Dashboard de Relatórios */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.dashboard-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-card.large {
+  grid-column: span 2;
+}
+
+.dashboard-card h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  color: var(--secondary);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-md);
+}
+
+.stat-item {
+  text-align: center;
+  padding: var(--space-md);
+  background: var(--gray-light);
+  border-radius: var(--radius-md);
+}
+
+.stat-number {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: var(--space-xs);
+}
+
+.stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--gray);
+}
+
+.chart-container {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-md);
+  height: 200px;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--gray-light);
+}
+
+.chart-bar {
+  flex: 1;
+  background: linear-gradient(to top, var(--primary), var(--primary-light));
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  position: relative;
+  min-width: 40px;
+}
+
+.chart-bar span {
+  position: absolute;
+  bottom: -25px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--gray);
+}
+
+.rotas-frequentes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.rota-frequente-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm);
+  background: var(--gray-light);
+  border-radius: var(--radius-sm);
+}
+
+.rota-count {
+  background: var(--primary);
+  color: var(--white);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.atividade-diaria {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  height: 150px;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--gray-light);
+}
+
+.dia-atividade {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.barra-atividade {
+  width: 20px;
+  background: linear-gradient(to top, var(--info), var(--info-dark));
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  min-height: 5px;
+}
+
+.dia-atividade span {
+  font-size: var(--font-size-xs);
+  color: var(--gray);
+}
+
+.relatorios-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+  margin-top: var(--space-xl);
+}
+
+/* Suporte com ícone verde */
+.feature-card.support {
+  border-color: #25D366;
+}
+
+.feature-card.support .card-icon {
+  background: #25D366;
+}
+
+/* Modo Escuro para novos elementos */
+body.dark .rota-passageiro-card,
+body.dark .motorista-detalhe-card,
+body.dark .dashboard-card {
+  background: #2d2d44;
+}
+
+body.dark .motoristas-na-rota,
+body.dark .motorista-passageiro-item,
+body.dark .rota-frequente-item,
+body.dark .stat-item {
+  background: #3d3d5a;
+}
+
+body.dark .chart-bar {
+  background: linear-gradient(to top, #8a0000, #5a0000);
+}
+
+body.dark .barra-atividade {
+  background: linear-gradient(to top, #2980b9, #3498db);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .rotas-passageiro-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-card.large {
+    grid-column: span 1;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .rota-passageiro-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .rota-passageiro-icon {
+    margin: 0 auto;
+  }
+  
+  .motorista-detalhe-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .motorista-detalhe-info .info-row {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+}
+
 /* ========== FIM DO CSS ========== */
