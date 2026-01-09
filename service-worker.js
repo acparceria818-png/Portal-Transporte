@@ -1,5 +1,5 @@
 // service-worker.js - VERSÃO FUNCIONAL
-const CACHE_NAME = 'ac-transporte-v8' + new Date().getTime();
+const CACHE_NAME = 'ac-transporte-v9' + new Date().getTime();
 const CORE_ASSETS = [
   './',                    // Página principal
   './index.html',          // HTML
